@@ -7,6 +7,7 @@
 #include <ctime>
 #include <type_traits>
 #include "../Types.h"
+#include <cmath>
 
 // Helper to get current timestamp string
 inline std::string current_timestamp() {
@@ -17,20 +18,56 @@ inline std::string current_timestamp() {
 }
 
 template<typename T>
-bool default_check(const T& value) {
-    if constexpr (std::is_integral_v<T>) {
+bool default_check(const T& value)
+{
+    if constexpr (std::is_integral_v<T>)
+    {
         return value > 0;
-    } else if constexpr (std::is_pointer_v<T>) {
+    }
+    else if constexpr (std::is_floating_point_v<T>)
+    {
+        return std::isfinite(value);
+    }
+    else if constexpr (std::is_pointer_v<T>)
+    {
         return value != nullptr;
-    } else if constexpr (std::is_same_v<T, IntRange>) {
-        return value.isValid();
-    } else {
+    }
+    else if constexpr (std::is_same_v<T, IntRange>)
+    {
+        return value.x >= value.min && value.x <= value.max;
+    }
+    else if constexpr (std::is_same_v<T, ActionType>)
+    {
+        return value == ActionType::BUY ||
+               value == ActionType::SELL ||
+               value == ActionType::HOLD;
+    }
+    else if constexpr (std::is_same_v<T, TradeData>)
+    {
+        return value.price_ > 0.0 && value.timestamp_ms_ > 0;
+    }
+    else if constexpr (std::is_same_v<T, ActionSignal>)
+    {
+        return default_check(value.type_) &&
+               default_check(value.price_) &&
+               default_check(value.amount_) &&
+               value.timestamp_ms_ > 0;
+    }
+    else if constexpr (std::is_same_v<T, DoubleVector>)
+    {
+        return !value.empty();
+    }
+    else if constexpr (std::is_same_v<T, TradeDataVector>)
+    {
+        return !value.empty();
+    }
+    else
+    {
         static_assert(std::is_same_v<T, void>,
                       "default_check: Unsupported type, please add a type branch!");
-        return true; // This line never executes, for syntax completeness
+        return true;
     }
 }
-
 
 template<typename T>
 bool check_one_param(const char* caller, const char* param_name, const T& value) {
