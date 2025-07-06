@@ -1,5 +1,5 @@
 #include <iostream>
-#include "ParameterCheck.h"  // Make sure this header contains your parameter checking implementation
+#include "../ParameterCheck.h"  // Make sure this header contains your parameter checking implementation
 
 // Simple unit test helper to print test results
 void run_test(const char* test_name, bool result) {
