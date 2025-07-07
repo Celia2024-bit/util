@@ -6,7 +6,7 @@
 #include <string>
 #include <ctime>
 #include <type_traits>
-#include "../Types.h"
+#include "../src/Types.h"
 #include <cmath>
 
 // Helper to get current timestamp string
@@ -26,7 +26,7 @@ bool default_check(const T& value)
     }
     else if constexpr (std::is_floating_point_v<T>)
     {
-        return std::isfinite(value);
+        return std::isfinite(value) && value > 0;
     }
     else if constexpr (std::is_pointer_v<T>)
     {
