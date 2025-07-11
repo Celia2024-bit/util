@@ -8,14 +8,14 @@
 #include <functional>
 #include <mutex>
 #include <optional>
-
+#include <unordered_map>
 
 /**
  * @struct LogMessage
  * @brief Holds all the contextual information for a single log entry.
  */
 struct LogMessage {
-    InternalLogLevel level;
+    uint8_t level;
     std::string levelName; // Store the user-friendly name
     std::chrono::system_clock::time_point timestamp;
     std::string file;
@@ -43,56 +43,61 @@ public:
      * @brief Get the singleton instance of the Logger.
      * @return Reference to the Logger instance.
      */
-    static Logger& getInstance();
+    static Logger& getInstance()
+    {
+         static Logger instance;
+         return instance;
+    }
 
     void init(const LevelMapping& mappings);
-    /**
-     * @brief Sets the minimum internal log level to be recorded.
-     * @param level The minimum internal log level.
-     */
-    void setLevel(InternalLogLevel level);
 
     /**
      * @brief Sets the minimum log level using custom log level enum.
      * @tparam T The custom log level enum type.
      * @param level The minimum log level.
      */
-    void setLevel(uint8_t level) {
-        currentLevel_ = level;
-        exactLevel_ = std::nullopt; // Clear exact level when setting minimum level
+    void setLevel(uint8_t level) 
+    {
+       currentLevel_ = level;
+       exactLevel_ = std::nullopt; 
     }
 
-    /**
-     * @brief Sets the logger to only show messages of exactly this level.
-     * @param level The exact internal log level to show.
-     */
-    void setExactLevel(InternalLogLevel level);
 
     /**
      * @brief Sets the logger to only show messages of exactly this level using custom log level enum.
      * @tparam T The custom log level enum type.
      * @param level The exact log level to show.
      */
-    void setExactLevel(uint8_t level) {
-        exactLevel_ = level;
+    void setExactLevel(uint8_t level) 
+    {
+       exactLevel_ = level;
     }
 
     /**
      * @brief Clears the exact level filter and returns to minimum level filtering.
      */
-    void clearExactLevel();
+    void clearExactLevel()
+    {
+        exactLevel_ = std::nullopt;
+    }
 
     /**
      * @brief Checks if exact level filtering is currently active.
      * @return true if exact level filtering is active, false otherwise.
      */
-    bool isExactLevelSet() const;
+    bool isExactLevelSet() const
+    {
+        return exactLevel_.has_value();
+    }
 
     /**
      * @brief Gets the current exact level if set.
      * @return The exact level if set, otherwise std::nullopt.
      */
-    std::optional<InternalLogLevel> getExactLevel() const;
+    std::optional<uint8_t> getExactLevel() const
+    {
+        return exactLevel_;
+    }
 
     /**
      * @brief Sets the output to a file.
@@ -109,7 +114,10 @@ public:
      * @brief Sets a custom function for formatting log messages.
      * @param formatter A function that takes a LogMessage and returns a formatted string.
      */
-    void setFormatter(FormatterFunc formatter);
+    void setFormatter(FormatterFunc formatter)
+    {
+        formatter_ = formatter;
+    }
 
 
     void log(uint8_t  level, const std::string& message, const char* file, const char* function, int line);
@@ -120,24 +128,19 @@ private:
     std::mutex mutex_;
     std::ostream* outputStream_;
     std::ofstream fileStream_;
-    InternalLogLevel currentLevel_;
-    std::optional<InternalLogLevel> exactLevel_; // For exact level filtering
+    uint8_t currentLevel_;
+    std::optional<uint8_t> exactLevel_; // For exact level filtering
     FormatterFunc formatter_;
     
-// Internal mapping from level value to string
-    LevelMapping levelToString;
-
-    // Built-in default mappings
-    const LevelMapping defaultMappings;
-
-    // Flag indicating whether custom mappings have been initialized
-    bool isInitialized;
+    // Static members for level mapping
+    static LevelMapping levelToString;
+    static const LevelMapping defaultMappings;
+    static bool isInitialized;
 };
 
 // --- Convenience Macro ---
 // This generic macro uses the LogLevelTraits to map the user's level.
 #define LOG(level, msg) Logger::getInstance().log(level, msg, __FILE__, __func__, __LINE__)
-#define LOGINIT(mappings) Logger::getInstance().init(mappings, __FILE__, __func__, __LINE__)
+#define LOGINIT(mappings) Logger::getInstance().init(mappings)
 
-#endif // LOGGER_H
 #endif // LOGGER_H

@@ -18,12 +18,9 @@ void Logger::init(const LevelMapping& mappings) {
     isInitialized = true;
 }
 
-
-Logger::Logger() : outputStream_(&std::cout), currentLevel_(InternalLogLevel::LEVEL2) { // Default to LEVEL2 (INFO)
-    formatter_ = defaultFormatter;
+Logger::Logger() : outputStream_(&std::cout), currentLevel_(2) { // Use literal value
+    formatter_ = [this](const LogMessage& msg) { return this->defaultFormatter(msg); };
 }
-
-
 
 void Logger::log(uint8_t  level, const std::string& message, const char* file, const char* function, int line) 
 {
@@ -57,7 +54,7 @@ void Logger::log(uint8_t  level, const std::string& message, const char* file, c
         }
                 LogMessage logMsg;
         logMsg.level = level;
-        logMsg.levelName = levelStr;
+        logMsg.levelName = levelStr ? *levelStr : "UNKNOWN";;
         logMsg.timestamp = std::chrono::system_clock::now();
         logMsg.file = file;
         logMsg.function = function;
@@ -67,32 +64,6 @@ void Logger::log(uint8_t  level, const std::string& message, const char* file, c
         std::lock_guard<std::mutex> lock(mutex_);
         *outputStream_ << formatter_(logMsg) << std::endl;
     }
-}
-    
-Logger& Logger::getInstance() {
-    static Logger instance;
-    return instance;
-}
-
-void Logger::setLevel(InternalLogLevel level) {
-    currentLevel_ = level;
-    exactLevel_ = std::nullopt; // Clear exact level when setting minimum level
-}
-
-void Logger::setExactLevel(InternalLogLevel level) {
-    exactLevel_ = level;
-}
-
-void Logger::clearExactLevel() {
-    exactLevel_ = std::nullopt;
-}
-
-bool Logger::isExactLevelSet() const {
-    return exactLevel_.has_value();
-}
-
-std::optional<InternalLogLevel> Logger::getExactLevel() const {
-    return exactLevel_;
 }
 
 void Logger::setOutputToFile(const std::string& filename) {
@@ -112,9 +83,6 @@ void Logger::setOutputToStdout() {
     outputStream_ = &std::cout;
 }
 
-void Logger::setFormatter(FormatterFunc formatter) {
-    formatter_ = formatter;
-}
 
 std::string Logger::defaultFormatter(const LogMessage& msg) {
     std::stringstream ss;

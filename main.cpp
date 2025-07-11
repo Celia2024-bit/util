@@ -7,14 +7,21 @@
 
 // --- Main function to demonstrate the Logger ---
 int main() {
-    
-    LevelMapping customMappings = {
-        {1, "CUSTOM_DEBUG"},
-        {2, "CUSTOM_INFO"},
-        {3, "CUSTOM_WARN"},
-        {4, "CUSTOM_ERROR"}
+    enum CustomerLogLevel 
+    {
+        DEBUG = 1,
+        INFO,
+        WARN,
+        ERROR
     };
     
+    LevelMapping customMappings = {
+        {DEBUG, "CUSTOM_DEBUG"},
+        {INFO, "CUSTOM_INFO"},
+        {WARN, "CUSTOM_WARN"},
+        {ERROR, "CUSTOM_ERROR"}
+    };
+
     LOGINIT(customMappings);
 
     // --- 1. Default Logging (INFO level to stdout) ---
@@ -76,9 +83,15 @@ int main() {
     std::cout << "Check the 'my_app.log' file - should only contain INFO messages." << std::endl;
     std::cout << std::endl;
 
+    // --- 7. Switch back to stdout ---
+    std::cout << "--- 7. Switching back to stdout with exact level filtering ---" << std::endl;
+    Logger::getInstance().setOutputToStdout();
+    LOG(CustomerLogLevel::INFO, "This message is now on the console with exact level filtering.");
+    LOG(CustomerLogLevel::DEBUG, "This debug message should NOT appear.");
+    std::cout << std::endl;
 
-    // --- 7. Use a Custom Formatter with exact level ---
-    std::cout << "--- 7. Using a Custom Formatter with exact level filtering ---" << std::endl;
+    // --- 8. Use a Custom Formatter with exact level ---
+    std::cout << "--- 8. Using a Custom Formatter with exact level filtering ---" << std::endl;
     Logger::getInstance().setFormatter([](const LogMessage& msg) {
         std::stringstream ss;
         ss << msg.levelName << " :: " << msg.message;
@@ -88,14 +101,5 @@ int main() {
     LOG(CustomerLogLevel::WARN, "This warning should NOT appear due to exact level filtering.");
     std::cout << "Check the log file again to see the new format with exact level filtering." << std::endl;
     std::cout << std::endl;
-
-
-    // --- 8. Switch back to stdout ---
-    std::cout << "--- 8. Switching back to stdout with exact level filtering ---" << std::endl;
-    Logger::getInstance().setOutputToStdout();
-    LOG(CustomerLogLevel::INFO, "This message is now on the console with exact level filtering.");
-    LOG(CustomerLogLevel::DEBUG, "This debug message should NOT appear.");
-    std::cout << std::endl;
-
     return 0;
 }
