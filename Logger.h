@@ -9,7 +9,9 @@
 #include <mutex>
 #include <optional>
 #include <unordered_map>
+#include <set>
 
+constexpr uint8_t DEFAULT_LEVEL = 2;
 /**
  * @struct LogMessage
  * @brief Holds all the contextual information for a single log entry.
@@ -62,7 +64,19 @@ public:
        exactLevel_ = std::nullopt; 
     }
 
+    void setDefaultLevel()
+    {
+        currentLevel_ = DEFAULT_LEVEL;
+    }
 
+    void setDefault()
+    {
+        clearExclusions(); // Clear all exclusions first
+        setDefaultLevel();
+        clearExactLevel();
+        setDefaultFormatter();
+        
+    }
     /**
      * @brief Sets the logger to only show messages of exactly this level using custom log level enum.
      * @tparam T The custom log level enum type.
@@ -119,13 +133,46 @@ public:
         formatter_ = formatter;
     }
 
+    void setDefaultFormatter()
+    {
+        formatter_ = [this](const LogMessage& msg) { return this->defaultFormatter(msg); };
+    }
+ /**
+     * @brief Adds a log level to the exclusion list.
+     * @param level The log level to exclude from output.
+     */
+    void notInclude(uint8_t level);
+
+    /**
+     * @brief Removes a log level from the exclusion list.
+     * @param level The log level to stop excluding.
+     */
+    void includeBack(uint8_t level);
+
+    /**
+     * @brief Clears all excluded log levels.
+     */
+    void clearExclusions();
+
+    /**
+     * @brief Checks if a specific level is currently excluded.
+     * @param level The log level to check.
+     * @return true if the level is excluded, false otherwise.
+     */
+    bool isLevelExcluded(uint8_t level) const;
+
+    /**
+     * @brief Gets all currently excluded levels.
+     * @return A set containing all excluded log levels.
+     */
+    std::set<uint8_t> getExcludedLevels() const;
 
     void log(uint8_t  level, const std::string& message, const char* file, const char* function, int line);
 private:
     Logger();
     std::string defaultFormatter(const LogMessage& msg);
 
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
     std::ostream* outputStream_;
     std::ofstream fileStream_;
     uint8_t currentLevel_;
@@ -136,6 +183,7 @@ private:
     static LevelMapping levelToString;
     static const LevelMapping defaultMappings;
     static bool isInitialized;
+    std::set<uint8_t> excludedLevels_;
 };
 
 // --- Convenience Macro ---

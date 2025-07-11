@@ -18,12 +18,16 @@ void Logger::init(const LevelMapping& mappings) {
     isInitialized = true;
 }
 
-Logger::Logger() : outputStream_(&std::cout), currentLevel_(2) { // Use literal value
+Logger::Logger() : outputStream_(&std::cout), currentLevel_(DEFAULT_LEVEL) { // Use literal value
     formatter_ = [this](const LogMessage& msg) { return this->defaultFormatter(msg); };
 }
 
 void Logger::log(uint8_t  level, const std::string& message, const char* file, const char* function, int line) 
 {
+    if (isLevelExcluded(level)) 
+    {
+        return; // Skip logging for excluded levels
+    }
     // Check if message should be logged based on current filtering mode
     bool shouldLog = false;
     if (exactLevel_.has_value()) {
@@ -52,7 +56,7 @@ void Logger::log(uint8_t  level, const std::string& message, const char* file, c
                 levelStr = &it->second;
             }
         }
-                LogMessage logMsg;
+        LogMessage logMsg;
         logMsg.level = level;
         logMsg.levelName = levelStr ? *levelStr : "UNKNOWN";;
         logMsg.timestamp = std::chrono::system_clock::now();
@@ -83,6 +87,30 @@ void Logger::setOutputToStdout() {
     outputStream_ = &std::cout;
 }
 
+void Logger::notInclude(uint8_t level) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    excludedLevels_.insert(level);
+}
+
+void Logger::includeBack(uint8_t level) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    excludedLevels_.erase(level);
+}
+
+void Logger::clearExclusions() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    excludedLevels_.clear();
+}
+
+bool Logger::isLevelExcluded(uint8_t level) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return excludedLevels_.find(level) != excludedLevels_.end();
+}
+
+std::set<uint8_t> Logger::getExcludedLevels() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return excludedLevels_;
+}
 
 std::string Logger::defaultFormatter(const LogMessage& msg) {
     std::stringstream ss;
