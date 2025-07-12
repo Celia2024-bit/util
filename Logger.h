@@ -10,6 +10,7 @@
 #include <optional>
 #include <unordered_map>
 #include <set>
+#include <sstream>
 
 constexpr uint8_t DEFAULT_LEVEL = 2;
 /**
@@ -186,9 +187,56 @@ private:
     std::set<uint8_t> excludedLevels_;
 };
 
+class LogStream {
+private:
+    std::stringstream ss_;
+    uint8_t level_;
+    const char* file_;
+    const char* func_;
+    int line_;
+    
+public:
+    LogStream(uint8_t level, const char* file, const char* func, int line) 
+        : level_(level), file_(file), func_(func), line_(line) {}
+    
+    // Move constructor to handle temporary objects properly
+    LogStream(LogStream&& other) noexcept
+        : ss_(std::move(other.ss_)), level_(other.level_), 
+          file_(other.file_), func_(other.func_), line_(other.line_) {}
+    
+    // Delete copy constructor and assignment to prevent issues
+    LogStream(const LogStream&) = delete;
+    LogStream& operator=(const LogStream&) = delete;
+    LogStream& operator=(LogStream&&) = delete;
+    
+    template<typename T>
+    LogStream& operator<<(const T& value) {
+        ss_ << value;
+        return *this;
+    }
+    
+    // Support for stream manipulators like std::endl, std::fixed, etc.
+    LogStream& operator<<(std::ostream& (*manip)(std::ostream&)) {
+        ss_ << manip;
+        return *this;
+    }
+    
+    // Support for ios_base manipulators like std::setprecision
+    LogStream& operator<<(std::ios_base& (*manip)(std::ios_base&)) {
+        ss_ << manip;
+        return *this;
+    }
+    
+    // The destructor is called when the temporary object goes out of scope
+    // This is the RAII pattern - cleanup happens automatically
+    ~LogStream() {
+        Logger::getInstance().log(level_, ss_.str(), file_, func_, line_);
+    }
+};
 // --- Convenience Macro ---
 // This generic macro uses the LogLevelTraits to map the user's level.
-#define LOG(level, msg) Logger::getInstance().log(level, msg, __FILE__, __func__, __LINE__)
+#define LOG_OLD(level, msg) Logger::getInstance().log(level, msg, __FILE__, __func__, __LINE__)
 #define LOGINIT(mappings) Logger::getInstance().init(mappings)
+#define LOG(level) LogStream(level, __FILE__, __func__, __LINE__)
 
 #endif // LOGGER_H
