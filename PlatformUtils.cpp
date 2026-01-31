@@ -4,6 +4,8 @@
 #include <cstdio> 
 #include <string> 
 
+
+
 namespace PlatformUtils {
     // 1. 跨平台文件存在性检查
     bool fileExists(const std::string& path) {
@@ -94,5 +96,58 @@ namespace PlatformUtils {
         #ifdef PLATFORM_WINDOWS
         WSACleanup();
         #endif
+    }
+    
+    bool setSocketNonBlocking(SOCKET_TYPE sock) {
+        #ifdef PLATFORM_WINDOWS
+        // Windows：使用ioctlsocket设置非阻塞
+        u_long mode = 1; // 1=非阻塞，0=阻塞
+        int ret = ioctlsocket(sock, FIONBIO, &mode);
+        if (ret != NO_ERROR) {
+            std::cerr << "[ERROR] setSocketNonBlocking failed (Windows): " << WSAGetLastError() << std::endl;
+            flushConsole();
+            return false;
+        }
+        #else
+        // Linux：使用fcntl设置非阻塞
+        int flags = fcntl(sock, F_GETFL, 0);
+        if (flags == -1) {
+            std::cerr << "[ERROR] setSocketNonBlocking failed (Linux): fcntl get flags failed, errno=" << errno << std::endl;
+            flushConsole();
+            return false;
+        }
+        if (fcntl(sock, F_SETFL, flags | O_NONBLOCK) == -1) {
+            std::cerr << "[ERROR] setSocketNonBlocking failed (Linux): fcntl set flags failed, errno=" << errno << std::endl;
+            flushConsole();
+            return false;
+        }
+        #endif
+        return true;
+    }
+
+    // 8. 跨平台恢复Socket为阻塞模式
+    bool setSocketBlocking(SOCKET_TYPE sock) {
+        #ifdef PLATFORM_WINDOWS
+        u_long mode = 0; // 0=阻塞
+        int ret = ioctlsocket(sock, FIONBIO, &mode);
+        if (ret != NO_ERROR) {
+            std::cerr << "[ERROR] setSocketBlocking failed (Windows): " << WSAGetLastError() << std::endl;
+            flushConsole();
+            return false;
+        }
+        #else
+        int flags = fcntl(sock, F_GETFL, 0);
+        if (flags == -1) {
+            std::cerr << "[ERROR] setSocketBlocking failed (Linux): fcntl get flags failed, errno=" << errno << std::endl;
+            flushConsole();
+            return false;
+        }
+        if (fcntl(sock, F_SETFL, flags & ~O_NONBLOCK) == -1) {
+            std::cerr << "[ERROR] setSocketBlocking failed (Linux): fcntl set flags failed, errno=" << errno << std::endl;
+            flushConsole();
+            return false;
+        }
+        #endif
+        return true;
     }
 }

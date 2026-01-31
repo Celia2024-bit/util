@@ -27,6 +27,9 @@
     // Linux 专属头文件（只在Linux下包含）
     #include <sys/socket.h>
     #include <unistd.h>
+    #include <fcntl.h>   // F_GETFL/F_SETFL/O_NONBLOCK
+    #include <unistd.h>  // fcntl
+    #include <errno.h>
     // Linux Socket类型定义
     #define SOCKET_TYPE int
     #define CLOSE_SOCKET(s) close(s)
@@ -50,4 +53,9 @@ namespace PlatformUtils {
 
     // 5. Windows专属：清理WSA（Linux下空实现）
     void cleanupSocketEnv();
+    
+    bool setSocketNonBlocking(SOCKET_TYPE sock);
+
+    // 8. 跨平台恢复Socket为阻塞模式
+    bool setSocketBlocking(SOCKET_TYPE sock);
 }
