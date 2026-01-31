@@ -150,4 +150,12 @@ namespace PlatformUtils {
         #endif
         return true;
     }
+    
+    bool isSocketTimeout() {
+      #ifdef _WIN32
+          return WSAGetLastError() == WSAETIMEDOUT || WSAGetLastError() == WSAEWOULDBLOCK;
+      #else
+          return errno == EAGAIN || errno == EWOULDBLOCK;
+      #endif
+    }
 }

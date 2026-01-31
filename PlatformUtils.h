@@ -58,4 +58,6 @@ namespace PlatformUtils {
 
     // 8. 跨平台恢复Socket为阻塞模式
     bool setSocketBlocking(SOCKET_TYPE sock);
+    
+    bool isSocketTimeout();
 }
