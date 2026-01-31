@@ -37,6 +37,7 @@
 namespace PlatformUtils {
     // 1. 跨平台文件存在性检查（替代filesystem，兼容所有C++版本）
     bool fileExists(const std::string& path);
+    bool deleteFile(const std::string& path, bool verbose = true);
 
     // 2. 跨平台设置Socket接收超时
     bool setSocketRecvTimeout(SOCKET_TYPE sock, std::chrono::milliseconds timeout);
