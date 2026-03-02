@@ -4,10 +4,8 @@
 #include <cstdio> 
 #include <string> 
 
-
-
 namespace PlatformUtils {
-    // 1. 跨平台文件存在性检查
+    // 1. Cross-platform file existence check
     bool fileExists(const std::string& path) {
         std::ifstream file(path.c_str());
         bool exists = file.is_open() && !file.fail();
@@ -15,15 +13,15 @@ namespace PlatformUtils {
         return exists;
     }
 
-    // 2. 跨平台删除文件
+    // 2. Cross-platform delete file
     /**
-     * @brief 跨平台删除指定文件
-     * @param path 文件路径（相对/绝对均可）
-     * @param verbose 是否打印详细日志（默认true）
-     * @return bool 删除成功返回true，失败返回false
+     * @brief Cross-platform deletion of a specified file
+     * @param path File path (relative or absolute)
+     * @param verbose Whether to print detailed logs (default is true)
+     * @return bool Returns true if deleted successfully, false otherwise
      */
     bool deleteFile(const std::string& path, bool verbose) {
-        // 第一步：检查文件是否存在
+        // Step 1: Check if the file exists
         if (!fileExists(path)) {
             if (verbose) {
                 std::cerr << "[WARNING] PlatformUtils::deleteFile: File not found - " << path << std::endl;
@@ -32,32 +30,33 @@ namespace PlatformUtils {
             return false;
         }
 
-        // 第二步：跨平台删除文件
+        // Step 2: Cross-platform file deletion
         int remove_result = std::remove(path.c_str());
         bool success = (remove_result == 0);
 
-        // 第三步：日志输出（根据verbose控制）
+        // Step 3: Log output (controlled by verbose)
         if (verbose) {
             if (success) {
                 std::cout << "[INFO] PlatformUtils::deleteFile: File deleted successfully - " << path << std::endl;
             } else {
                 #ifdef PLATFORM_WINDOWS
-                // Windows下获取具体错误码
+                // Get specific error code on Windows
                 DWORD err_code = GetLastError();
                 std::cerr << "[ERROR] PlatformUtils::deleteFile: Failed to delete file - " << path 
                           << " (Windows error code: " << err_code << ")" << std::endl;
                 #else
-                // Linux下获取errno
+                // Get errno on Linux
                 std::cerr << "[ERROR] PlatformUtils::deleteFile: Failed to delete file - " << path 
                           << " (errno: " << errno << ")" << std::endl;
                 #endif
             }
-            flushConsole(); // 强制刷新日志
+            flushConsole(); // Force log flush
         }
 
         return success;
     }
-    // 3. 跨平台设置Socket接收超时
+
+    // 3. Cross-platform set Socket receive timeout
     bool setSocketRecvTimeout(SOCKET_TYPE sock, std::chrono::milliseconds timeout) {
         #ifdef PLATFORM_WINDOWS
         DWORD timeout_ms = static_cast<DWORD>(timeout.count());
@@ -71,7 +70,7 @@ namespace PlatformUtils {
         #endif
     }
 
-    // 4. 跨平台强制刷新输出
+    // 4. Cross-platform forced output flush
     void flushConsole() {
         std::cout << std::flush;
         std::cerr << std::flush;
@@ -81,17 +80,17 @@ namespace PlatformUtils {
         #endif
     }
 
-    // 5. Socket环境初始化（Windows需WSAStartup，Linux空实现）
+    // 5. Socket environment initialization (Windows requires WSAStartup, Linux is no-op)
     bool initSocketEnv() {
         #ifdef PLATFORM_WINDOWS
         WSADATA wsaData;
         return WSAStartup(MAKEWORD(2, 2), &wsaData) == 0;
         #else
-        return true; // Linux无需初始化
+        return true; // Linux does not require initialization
         #endif
     }
 
-    // 6. Socket环境清理（Windows需WSACleanup，Linux空实现）
+    // 6. Socket environment cleanup (Windows requires WSACleanup, Linux is no-op)
     void cleanupSocketEnv() {
         #ifdef PLATFORM_WINDOWS
         WSACleanup();
@@ -100,8 +99,8 @@ namespace PlatformUtils {
     
     bool setSocketNonBlocking(SOCKET_TYPE sock) {
         #ifdef PLATFORM_WINDOWS
-        // Windows：使用ioctlsocket设置非阻塞
-        u_long mode = 1; // 1=非阻塞，0=阻塞
+        // Windows: Use ioctlsocket to set non-blocking
+        u_long mode = 1; // 1=non-blocking, 0=blocking
         int ret = ioctlsocket(sock, FIONBIO, &mode);
         if (ret != NO_ERROR) {
             std::cerr << "[ERROR] setSocketNonBlocking failed (Windows): " << WSAGetLastError() << std::endl;
@@ -109,7 +108,7 @@ namespace PlatformUtils {
             return false;
         }
         #else
-        // Linux：使用fcntl设置非阻塞
+        // Linux: Use fcntl to set non-blocking
         int flags = fcntl(sock, F_GETFL, 0);
         if (flags == -1) {
             std::cerr << "[ERROR] setSocketNonBlocking failed (Linux): fcntl get flags failed, errno=" << errno << std::endl;
@@ -125,10 +124,10 @@ namespace PlatformUtils {
         return true;
     }
 
-    // 8. 跨平台恢复Socket为阻塞模式
+    // 8. Cross-platform restore Socket to blocking mode
     bool setSocketBlocking(SOCKET_TYPE sock) {
         #ifdef PLATFORM_WINDOWS
-        u_long mode = 0; // 0=阻塞
+        u_long mode = 0; // 0=blocking
         int ret = ioctlsocket(sock, FIONBIO, &mode);
         if (ret != NO_ERROR) {
             std::cerr << "[ERROR] setSocketBlocking failed (Windows): " << WSAGetLastError() << std::endl;
