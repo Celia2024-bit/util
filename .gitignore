@@ -1,0 +1,5 @@
+#
+# Test binaries, built by the Makefile targets in the parent repo.
+#
+Test/*.exe
+Test/*.out
