@@ -1,190 +1,129 @@
 #ifndef PARAMETER_CHECK_H
 #define PARAMETER_CHECK_H
 
-//
-// Parameter validation meant to be injected by tools/trace_injector:
-//
-//     void Strategy::OnTick(const TradeData& tick, int window)
-//     {
-//         check_all("Strategy::OnTick", {"tick", "window"}, tick, window);
-//         ...
-//     }
-//
-// Two rules follow from being injected rather than hand-written.
-//
-// The first is that an unknown type must not break the build. Injected across
-// hundreds of functions, the first parameter of a type nobody registered would
-// otherwise fail to compile at a line nobody wrote. An unregistered type is
-// therefore not checked at all: the failure mode is a check that did not
-// happen, which the reader can find, rather than a build that will not start.
-//
-// The second is that a check nobody believes is worse than no check. Only what
-// is true of every value of a type is asserted here — a null pointer is never
-// meaningful, a NaN is never a price. "Must be positive" is a rule about a
-// particular quantity, not about int, and belongs in a registration.
-//
-// The return value is deliberately easy to ignore: check_all logs, and what to
-// do about a bad parameter is the caller's business. Injected code cannot
-// return early for you — the return type varies and there is no correct value
-// to invent.
-//
-
-#include <cmath>
-#include <cstddef>
-#include <initializer_list>
+#include <iostream>
+#include <fstream>
+#include <string>
 #include <type_traits>
 #include <utility>
+#include <ctime>
 
-#include "Logger.h"
+#include "CheckTraits.h"
+#include "Types.h"
 
-//
-// CustomerLogLevel::WARN, which is 7 in src/Types.h. A number rather than the
-// enum so this header knows nothing of the project's own types; define it on
-// the command line for a tree whose level map differs.
-//
-#ifndef PARAMETER_CHECK_LEVEL
-#define PARAMETER_CHECK_LEVEL 7
-#endif
+namespace details {
 
-//
-// Where a type says what a valid value of it looks like. Specialise beside the
-// type's own definition, not here — this header is meant to know no domain:
-//
-//     template<>
-//     struct check_traits<TradeData> : std::true_type
-//     {
-//         static bool valid(const TradeData& v)
-//         {
-//             return v.price_ > 0.0 && v.timestamp_ms_ > 0;
-//         }
-//     };
-//
-// The unused second parameter is for partial specialisations that want to match
-// a whole family of types by SFINAE rather than one type at a time.
-//
-template<typename T, typename = void>
-struct check_traits : std::false_type
-{
-};
+// SFINAE trait to detect if check_traits<T>::check(...) is callable
+template <typename T, typename = void>
+struct has_check_traits : std::false_type {};
+
+template <typename T>
+struct has_check_traits<T, std::void_t<decltype(check_traits<T>::check(std::declval<const T&>()))>> : std::true_type {};
+
+// Compile-time validity predicate
+template <typename T>
+constexpr bool is_validatable_v = 
+    std::is_fundamental_v<T> || 
+    std::is_pointer_v<T> || 
+    has_isValid_v<T> || 
+    has_empty_v<T> || 
+    has_check_traits<T>::value;
+
+} // namespace details
+
+inline std::string current_timestamp() {
+    std::time_t now = std::time(nullptr);
+    char buf[64];
+    std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", std::localtime(&now));
+    return std::string(buf);
+}
 
 template<typename T>
-inline constexpr bool has_check_v = check_traits<T>::value;
-
-//
-// What is asserted about a value with no registration of its own. A registered
-// type is asked first, so a registration always wins over the generic rules.
-//
-template<typename T>
-bool default_check(const T& value)
+bool default_validate(const T& value)
 {
-    if constexpr (has_check_v<T>)
+    // Compile-time check: throw an explicit static failure if type is not prepared
+    static_assert(
+        details::is_validatable_v<T>,
+        "[Validation Error] Type is NOT prepared for validation! "
+        "Provide one of: 'isValid() const', 'empty()', or 'check_traits<T>' specialization."
+    );
+
+    if constexpr (std::is_integral_v<T>)
     {
-        return check_traits<T>::valid(value);
+        return value > 0;
+    }
+    else if constexpr (std::is_floating_point_v<T>)
+    {
+        return std::isfinite(value) && value > 0;
     }
     else if constexpr (std::is_pointer_v<T>)
     {
         return value != nullptr;
     }
-    else if constexpr (std::is_floating_point_v<T>)
+    else if constexpr (has_isValid_v<T>)
     {
-        //
-        // Finite, and nothing more. Zero and negative are ordinary values of a
-        // price delta or a P&L.
-        //
-        return std::isfinite(value);
+        return value.isValid();
+    }
+    else if constexpr (has_empty_v<T>)
+    {
+        return !value.empty();
     }
     else
     {
-        (void)value;
-        return true;
+        return check_traits<T>::check(value);
     }
 }
 
 template<typename T>
-bool check_one_param(
-    const char* caller,
-    const char* param_name,
-    const T& value
-)
-{
-    if (default_check(value))
-    {
-        return true;
+bool validate_one_param(const char* caller, const char* param_name, const T& value) {
+    bool result = default_validate(value);
+    if (!result) {
+        std::string msg = "[" + current_timestamp() + "] "
+                          "Error in function \"" + caller + "\" - "
+                          "Parameter \"" + param_name + "\" is invalid. ";
+        std::cout << msg << std::endl;
+
+        std::ofstream log_file("parameter_check.log", std::ios::app);
+        if (log_file.is_open()) {
+            log_file << msg << std::endl;
+            log_file.close();
+        } else {
+            std::cerr << "Failed to open log file for writing." << std::endl;
+        }
     }
-
-    //
-    // LogStream rather than the LOG macro, with `caller` where the macro would
-    // put __func__: the file and line are this header's either way, so the one
-    // field that can name the function under check is spent on doing so.
-    //
-    LogStream(PARAMETER_CHECK_LEVEL, __FILE__, caller, __LINE__)
-        << "Parameter \""
-        << param_name
-        << "\" is invalid";
-
-    return false;
+    return result;
 }
 
-//
-// One index per parameter, so a name is never read past the end of the list and
-// nothing is mutated while the pack expands.
-//
-template<std::size_t... Index, typename... Args>
-bool check_all_impl(
-    const char* caller,
-    const char* const* names,
-    std::index_sequence<Index...>,
-    const Args&... args
-)
-{
-    //
-    // A function taking nothing expands to no calls at all, which leaves both
-    // of these unread.
-    //
-    (void)caller;
+inline bool validate_params_impl(const char** names, size_t current_idx, const char* caller) {
     (void)names;
+    (void)current_idx;
+    (void)caller;
+    return true; 
+}
 
-    //
-    // & and not &&, deliberately: every bad parameter has to be reported, and
-    // && would stop at the first one. Do not "fix" this.
-    //
-    // The operands of & are evaluated in an unspecified order, which is fine
-    // here only because each call is independent — hence the index rather than
-    // a pointer being walked along.
-    //
-    return (true & ... & check_one_param(caller, names[Index], args));
+template<typename First, typename... Rest>
+bool validate_params_impl(const char** names, size_t current_idx, const char* caller, const First& first, const Rest&... rest) {
+    bool current_result = validate_one_param(caller, names[current_idx], first);
+    bool rest_result = validate_params_impl(names, current_idx + 1, caller, rest...);
+    return current_result && rest_result;
 }
 
 template<typename... Args>
-bool check_all(
-    const char* caller,
-    std::initializer_list<const char*> names,
-    const Args&... args
-)
-{
-    //
-    // A mismatch is a caller that has drifted from its own signature, which
-    // used to be a read off the end of the names array. Nothing is checked in
-    // that case: names paired with the wrong values are worse than none.
-    //
-    if (names.size() != sizeof...(args))
-    {
-        LogStream(PARAMETER_CHECK_LEVEL, __FILE__, caller, __LINE__)
-            << "check_all was given "
-            << names.size()
-            << " names for "
-            << sizeof...(args)
-            << " parameters";
+bool validate_params(const char* caller, const char** names, const Args&... args) {
+    return validate_params_impl(names, 0, caller, args...);
+}
 
-        return false;
-    }
+template<typename... Args>
+bool validate_params(const char* caller, const Args&... args) {
+    constexpr size_t count = sizeof...(args);
+    static_assert(count <= 10, "validate_params supports up to 10 parameters only");
 
-    return check_all_impl(
-        caller,
-        names.begin(),
-        std::index_sequence_for<Args...>{},
-        args...
-    );
+    static const char* dummy_names[10] = {
+        "param1", "param2", "param3", "param4", "param5",
+        "param6", "param7", "param8", "param9", "param10"
+    };
+
+    return validate_params(caller, dummy_names, args...);
 }
 
 #endif // PARAMETER_CHECK_H
