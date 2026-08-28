@@ -48,11 +48,7 @@ bool default_validate(const T& value)
         "Provide one of: 'isValid() const', 'empty()', or 'check_traits<T>' specialization."
     );
 
-    if constexpr (std::is_integral_v<T>)
-    {
-        return value > 0;
-    }
-    else if constexpr (std::is_floating_point_v<T>)
+    if constexpr (std::is_floating_point_v<T>)
     {
         return std::isfinite(value) && value > 0;
     }
