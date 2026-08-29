@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-#include "../ScopeTrace.h"
+#include "../ScopeTrace/ScopeTrace.h"
 
 namespace
 {
