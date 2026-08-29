@@ -50,7 +50,11 @@ bool default_validate(const T& value)
 
     if constexpr (std::is_floating_point_v<T>)
     {
-        return std::isfinite(value) && value > 0;
+        return std::isfinite(value); 
+    }
+    else if constexpr (std::is_integral_v<T>)
+    {
+        return true;
     }
     else if constexpr (std::is_pointer_v<T>)
     {
