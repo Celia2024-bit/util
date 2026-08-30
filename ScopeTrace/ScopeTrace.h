@@ -2,7 +2,7 @@
 #define SCOPE_TRACE_H
 
 //
-// RAII entry/exit tracing, written to be injected by tools/trace_injector:
+// RAII entry/exit tracing, written to be injected by tools/aspect_injector:
 //
 //     void AlphaStrategy::Run()
 //     {
